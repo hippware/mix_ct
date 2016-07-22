@@ -115,7 +115,7 @@ defmodule Mix.Tasks.Ct do
 
     case File.cp_r(data_dir, dest_dir) do
       {:ok, _} -> :ok
-      {:error, :enoent, data_dir} -> :ok
+      {:error, :enoent, ^data_dir} -> :ok
       e -> Mix.raise("Error copying data dir for " <> inspect suite
                      <> ":" <> inspect e)
     end
