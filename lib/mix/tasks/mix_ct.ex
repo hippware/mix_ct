@@ -31,8 +31,9 @@ defmodule Mix.Tasks.Ct do
 
   @moduledoc """
   # Command line options
-    * `--log-dir` - change the output directory; default: ct/logs
+    * `--log-dir` - change the output directory; default: _build/<ENV>/ct/logs
     * `--suites` - select the suites to run; default: all *_SUITE modules
+    * `--cover` - run cover report
     * other options supported by `compile*` tasks
   """
 
@@ -49,7 +50,7 @@ defmodule Mix.Tasks.Ct do
     ensure_compile
     Mix.Task.run "compile"
 
-    logdir = Keyword.get(opts, :log_dir, "ct/logs")
+    logdir = Keyword.get(opts, :log_dir, "_build/#{Mix.env}/ct/log")
     File.mkdir_p!(logdir)
 
     ct_opts = [
