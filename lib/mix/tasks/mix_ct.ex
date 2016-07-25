@@ -37,7 +37,11 @@ defmodule Mix.Tasks.Ct do
   """
 
   def run(args) do
-    {opts, args, _errors} = OptionParser.parse(args, strict: [log_dir: :string])
+    {opts, args, _errors} = OptionParser.parse(
+                              args,
+                              switches: [cover: :boolean,
+                                         log_dir: :string],
+                              aliases: [l: :log_dir, c: :cover])
 
     post_config = ct_post_config(Mix.Project.config)
     modify_project_config(post_config)
@@ -60,7 +64,9 @@ defmodule Mix.Tasks.Ct do
                _ -> args
              end
 
+    if(Keyword.get(opts, :cover), do: cover_start())
     run_tests(suites, ct_opts)
+    if(Keyword.get(opts, :cover), do: cover_analyse())
   end
 
   defp all_tests() do
@@ -119,6 +125,16 @@ defmodule Mix.Tasks.Ct do
       e -> Mix.raise("Error copying data dir for " <> inspect suite
                      <> ":" <> inspect e)
     end
+  end
+
+  defp cover_start() do
+    :cover.compile_beam_directory(String.to_charlist(Mix.Project.compile_path))
+  end
+
+  defp cover_analyse() do
+    dir = Mix.Project.config[:test_coverage][:output]
+    File.mkdir_p(dir)
+    :cover.analyse_to_file([:html, outdir: dir])
   end
 
 end
