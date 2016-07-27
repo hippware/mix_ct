@@ -25,7 +25,7 @@
 defmodule Mix.Tasks.Ct do
   use Mix.Task
 
-  @preferred_cli_env :ct
+  @preferred_cli_env :test
 
   @shortdoc "Run the project's Common Test suite"
 
