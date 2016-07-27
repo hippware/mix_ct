@@ -118,15 +118,14 @@ defmodule Mix.Tasks.Ct do
   end
 
   defp copy_data_dir(suite) do
-    data_dir_name = suite <> "_data"
+    data_dir_name = "#{suite}_data"
     data_dir = Path.join("test", data_dir_name)
     dest_dir = Path.join(test_path, data_dir_name)
 
     case File.cp_r(data_dir, dest_dir) do
       {:ok, _} -> :ok
       {:error, :enoent, ^data_dir} -> :ok
-      e -> Mix.raise("Error copying data dir for " <> inspect suite
-                     <> ":" <> inspect e)
+      e -> Mix.raise("Error copying data dir for #{suite}: #{inspect(e)}")
     end
   end
 
