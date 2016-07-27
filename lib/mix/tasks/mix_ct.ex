@@ -54,10 +54,11 @@ defmodule Mix.Tasks.Ct do
     File.mkdir_p!(logdir)
 
     ct_opts = [
-      {:logdir, String.to_char_list(logdir)},
-      {:auto_compile, false},
-      {:config, 'test/test.config'},
-      {:dir, String.to_char_list(test_path)}
+      auto_compile: false,
+      ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
+      logdir:       String.to_char_list(logdir),
+      config:       'test/test.config',
+      dir:          String.to_char_list(test_path)
     ]
 
     suites = case args do
@@ -80,8 +81,9 @@ defmodule Mix.Tasks.Ct do
   defp test_path, do: Path.join(Mix.Project.app_path, "ebin")
 
   defp ct_post_config(existing_config) do
+    compile_opts = [parse_transform: :cth_readable_transform, d: :TEST]
     [erlc_paths: existing_config[:erlc_paths] ++ ["test"],
-     erlc_options: existing_config[:erlc_options] ++ [{:d, :TEST}]]
+     erlc_options: existing_config[:erlc_options] ++ compile_opts]
   end
 
   defp ensure_compile do
