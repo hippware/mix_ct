@@ -27,63 +27,107 @@ defmodule Mix.Tasks.Ct do
 
   @preferred_cli_env :test
 
+  @test_dir "test"
+
   @shortdoc "Run the project's Common Test suite"
 
   @moduledoc """
   # Command line options
-    * `--log-dir` - change the output directory; default: _build/<ENV>/ct_logs
-    * `--suites` - select the suites to run; default: all *_SUITE modules
-    * `--cover` - run cover report
-    * other options supported by `compile*` tasks
+    * `--suite`, `-s` - comma separated list of suites to run
+    * `--group`, `-g` - comma separated list of groups to run
+    * `--testcase`, `-t` - comma separated list of test cases to run
+    * `--config`, `-f` - test config to use; default: #{@test_dir}/test.config
+    * `--log-dir`, `-l` - change the output directory; default: _build/<ENV>/ct_logs
+    * `--cover`, `-c` - run cover report
   """
 
-  def run(args) do
-    {opts, args, _errors} = OptionParser.parse(
-                              args,
-                              switches: [cover: :boolean,
-                                         log_dir: :string],
-                              aliases: [l: :log_dir, c: :cover])
+  @cover [output: "cover", tool: Mix.Tasks.Test.Cover]
 
-    post_config = ct_post_config(Mix.Project.config)
+  def run(args) do
+    options = parse_options(args)
+    project = Mix.Project.config
+
+    # add test directory to compile paths and add
+    # compiler options for test
+    post_config = ct_post_config(project)
     modify_project_config(post_config)
 
+    # make sure mix will let us run compile
     ensure_compile
     Mix.Task.run "compile"
 
-    logdir = Keyword.get(opts, :log_dir, "_build/#{Mix.env}/ct_logs")
-    File.mkdir_p!(logdir)
+    # start cover
+    cover =
+      if options[:cover] do
+        compile_path = Mix.Project.compile_path(project)
+        cover = Keyword.merge(@cover, project[:test_coverage] || [])
+        cover[:tool].start(compile_path, cover)
+      end
 
-    ct_opts = [
-      auto_compile: false,
-      ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
-      logdir:       String.to_char_list(logdir),
-      config:       'test/test.config',
-      dir:          String.to_char_list(test_path)
-    ]
+    # run the actual tests
+    File.mkdir_p!(options[:log_dir])
 
-    suites = case args do
-               [] -> all_tests()
-               _ -> args
-             end
+    ct_opts = get_ct_opts(options)
+    result = run_tests(ct_opts)
 
-    if(Keyword.get(opts, :cover), do: cover_start())
-    run_tests(suites, ct_opts)
-    if(Keyword.get(opts, :cover), do: cover_analyse())
-  end
+    cover && cover.()
 
-  defp all_tests() do
-    suitefiles = Path.join(test_path, "*_SUITE.beam") |> Path.wildcard
-    for s <- suitefiles do
-      Path.rootname(s) |> Path.basename
+    case result do
+      :error -> Mix.raise "mix ct failed"
+      :ok -> :ok
     end
   end
 
-  defp test_path, do: Path.join(Mix.Project.app_path, "ebin")
+  defp parse_options(args) do
+    {switches, _argv, _errors} =
+      OptionParser.parse(args, [
+        strict: [
+          dir:      :string,
+          suite:    :string,
+          group:    :string,
+          testcase: :string,
+          log_dir:  :string,
+          config:   :string,
+          cover:    :boolean
+        ],
+        aliases: [
+          d: :dir,
+          s: :suite,
+          g: :group,
+          t: :testcase,
+          l: :log_dir,
+          f: :config,
+          c: :cover
+        ]
+      ])
+
+    log_dir = Keyword.get(switches, :log_dir, "_build/#{Mix.env}/ct_logs")
+
+    %{suite: switches[:suite] |> list_param,
+      group: switches[:group] |> list_param,
+      testcase: switches[:testcase] |> list_param,
+      config: switches[:config] |> list_param,
+      log_dir: log_dir,
+      cover: switches[:cover]}
+  end
+
+  defp list_param(nil), do: nil
+  defp list_param(str) do
+    str
+    |> String.split(",")
+    |> Enum.map(&String.to_charlist/1)
+  end
 
   defp ct_post_config(existing_config) do
     compile_opts = [parse_transform: :cth_readable_transform, d: :TEST]
-    [erlc_paths: existing_config[:erlc_paths] ++ ["test"],
+    [erlc_paths: existing_config[:erlc_paths] ++ [@test_dir],
      erlc_options: existing_config[:erlc_options] ++ compile_opts]
+  end
+
+  defp modify_project_config(post_config) do
+    %{name: name, file: file} = Mix.Project.pop
+    Mix.ProjectStack.post_config(post_config)
+    Mix.Project.push name, file
   end
 
   defp ensure_compile do
@@ -99,44 +143,32 @@ defmodule Mix.Tasks.Ct do
     |> Enum.filter(fn(t) -> match?("compile." <> _, t) end)
   end
 
-  defp modify_project_config(post_config) do
-    %{name: name, file: file} = Mix.Project.pop
-    Mix.ProjectStack.post_config(post_config)
-    Mix.Project.push name, file
+  defp get_ct_opts(options) do
+    base_ct_opts = [
+      auto_compile: false,
+      ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
+      logdir:       options[:log_dir] |> String.to_charlist,
+      config:       test_config(options[:config]) |> String.to_charlist,
+      dir:          @test_dir |> String.to_charlist,
+      dir:          ebin_path |> String.to_charlist
+    ]
+
+    [:suite, :group, :testcase]
+    |> Enum.reduce(base_ct_opts, fn n, acc -> ct_opt(n, options[n], acc) end)
   end
 
-  defp run_tests([], _opts) do
-    :ok
-  end
+  defp test_config(nil), do: @test_dir |> Path.join("test.config")
+  defp test_config(str), do: str
 
-  defp run_tests([suite | suites], opts) do
-    copy_data_dir(suite)
-    case :ct.run_test([{:suite, String.to_char_list(suite)} | opts]) do
-      {_, 0, {_, _}} -> run_tests(suites, opts)
-      _ -> Mix.raise("CT failure in " <> inspect(suite))
+  defp ebin_path, do: Mix.Project.app_path |> Path.join("ebin")
+
+  defp ct_opt(_, nil, ct_opts), do: ct_opts
+  defp ct_opt(opt, val, ct_opts), do: [{opt, val} | ct_opts]
+
+  defp run_tests(opts) do
+    case :ct.run_test(opts) do
+      {_, 0, {_, _}} -> :ok
+      _ -> :error
     end
   end
-
-  defp copy_data_dir(suite) do
-    data_dir_name = "#{suite}_data"
-    data_dir = Path.join("test", data_dir_name)
-    dest_dir = Path.join(test_path, data_dir_name)
-
-    case File.cp_r(data_dir, dest_dir) do
-      {:ok, _} -> :ok
-      {:error, :enoent, ^data_dir} -> :ok
-      e -> Mix.raise("Error copying data dir for #{suite}: #{inspect(e)}")
-    end
-  end
-
-  defp cover_start() do
-    :cover.compile_beam_directory(String.to_charlist(Mix.Project.compile_path))
-  end
-
-  defp cover_analyse() do
-    dir = Mix.Project.config[:test_coverage][:output]
-    File.mkdir_p(dir)
-    :cover.analyse_to_file([:html, outdir: dir])
-  end
-
 end
