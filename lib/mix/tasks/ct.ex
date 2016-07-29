@@ -65,8 +65,7 @@ defmodule Mix.Tasks.Ct do
       end
 
     # run the actual tests
-    File.mkdir_p!(options[:log_dir])
-
+    prepare(options)
     ct_opts = get_ct_opts(options)
     result = run_tests(ct_opts)
 
@@ -141,6 +140,32 @@ defmodule Mix.Tasks.Ct do
     Mix.Task.all_modules
     |> Enum.map(&Mix.Task.task_name/1)
     |> Enum.filter(fn(t) -> match?("compile." <> _, t) end)
+  end
+
+  defp prepare(options) do
+    File.mkdir_p!(options[:log_dir])
+
+    suites = options[:suite] || all_suites
+    Enum.each(suites, &copy_data_dir/1)
+  end
+
+  defp all_suites do
+    @test_dir
+    |> Path.join("*_SUITE.erl")
+    |> Path.wildcard
+    |> Enum.map(fn s -> s |> Path.rootname |> Path.basename end)
+  end
+
+  defp copy_data_dir(suite) do
+    data_dir_name = "#{suite}_data"
+    data_dir = Path.join(@test_dir, data_dir_name)
+    dest_dir = Path.join(ebin_path, data_dir_name)
+
+    case File.cp_r(data_dir, dest_dir) do
+      {:ok, _} -> :ok
+      {:error, :enoent, ^data_dir} -> :ok
+      e -> Mix.raise("Error copying data dir for #{suite}: #{inspect(e)}")
+    end
   end
 
   defp get_ct_opts(options) do
