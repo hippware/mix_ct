@@ -174,12 +174,18 @@ defmodule Mix.Tasks.Ct do
       ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
       logdir:       options[:log_dir] |> String.to_charlist,
       config:       test_config(options[:config]) |> String.to_charlist,
-      dir:          @test_dir |> String.to_charlist,
       dir:          ebin_path |> String.to_charlist
     ]
 
-    [:suite, :group, :testcase]
-    |> Enum.reduce(base_ct_opts, fn n, acc -> ct_opt(n, options[n], acc) end)
+    ct_opts =
+      [:suite, :group, :testcase]
+      |> Enum.reduce(base_ct_opts, fn n, acc -> ct_opt(n, options[n], acc) end)
+
+    if is_nil(ct_opts[:suite]) do
+      [{:dir, @test_dir |> String.to_charlist} | ct_opts]
+    else
+      ct_opts
+    end
   end
 
   defp test_config(nil), do: @test_dir |> Path.join("test.config")
