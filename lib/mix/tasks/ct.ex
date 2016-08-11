@@ -25,21 +25,26 @@
 defmodule Mix.Tasks.Ct do
   use Mix.Task
 
+  @moduledoc """
+  Runs the Common Test suite for a project.
+
+  This task compiles the application then runs all of the Common Test suites
+  in the `test` directory.
+
+  ## Command line options
+
+    * `--suite`, `-s`       - comma separated list of suites to run
+    * `--group`, `-g`       - comma separated list of groups to run
+    * `--testcase`, `-t`    - comma separated list of test cases to run
+    * `--config`, `-f`      - test config to use; default: test/test.config
+    * `--log-dir`, `-l`     - change the output directory; default: _build/<ENV>/ct_logs
+    * `--cover`, `-c`       - run cover report
+  """
+  @shortdoc "Runs a project's Common Test suite"
   @preferred_cli_env :test
+  @recursive true
 
   @test_dir "test"
-
-  @shortdoc "Run the project's Common Test suite"
-
-  @moduledoc """
-  # Command line options
-    * `--suite`, `-s` - comma separated list of suites to run
-    * `--group`, `-g` - comma separated list of groups to run
-    * `--testcase`, `-t` - comma separated list of test cases to run
-    * `--config`, `-f` - test config to use; default: #{@test_dir}/test.config
-    * `--log-dir`, `-l` - change the output directory; default: _build/<ENV>/ct_logs
-    * `--cover`, `-c` - run cover report
-  """
 
   @cover [output: "cover", tool: Mix.Tasks.Test.Cover]
 
