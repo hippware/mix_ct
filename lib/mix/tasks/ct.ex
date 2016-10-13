@@ -123,9 +123,17 @@ defmodule Mix.Tasks.Ct do
   end
 
   defp ct_post_config(existing_config) do
-    compile_opts = [parse_transform: :cth_readable_transform, d: :TEST]
+    compile_opts = [parse_transform: :cth_readable_transform]
     [erlc_paths: existing_config[:erlc_paths] ++ [@test_dir],
-     erlc_options: existing_config[:erlc_options] ++ compile_opts]
+     erlc_options: maybe_add_test_define(existing_config[:erlc_options] ++ compile_opts)]
+  end
+
+  defp maybe_add_test_define(opts) do
+    if Enum.member?(opts, {:d, :TEST}) do
+      opts
+    else
+      [{:d, :TEST} | opts]
+    end
   end
 
   defp modify_project_config(post_config) do
