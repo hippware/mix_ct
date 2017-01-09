@@ -58,7 +58,7 @@ defmodule Mix.Tasks.Ct do
     modify_project_config(post_config)
 
     # make sure mix will let us run compile
-    ensure_compile
+    ensure_compile()
     Mix.Task.run "compile"
 
     # start cover
@@ -146,7 +146,7 @@ defmodule Mix.Tasks.Ct do
     # we have to reenable compile and all of its
     # child tasks (compile.erlang, compile.elixir, etc)
     Mix.Task.reenable("compile")
-    Enum.each(compilers, &Mix.Task.reenable/1)
+    Enum.each(compilers(), &Mix.Task.reenable/1)
   end
 
   defp compilers do
@@ -158,7 +158,7 @@ defmodule Mix.Tasks.Ct do
   defp prepare(options) do
     File.mkdir_p!(options[:log_dir])
 
-    suites = options[:suite] || all_suites
+    suites = options[:suite] || all_suites()
     Enum.each(suites, &copy_data_dir/1)
   end
 
@@ -172,7 +172,7 @@ defmodule Mix.Tasks.Ct do
   defp copy_data_dir(suite) do
     data_dir_name = "#{suite}_data"
     data_dir = Path.join(@test_dir, data_dir_name)
-    dest_dir = Path.join(ebin_path, data_dir_name)
+    dest_dir = Path.join(ebin_path(), data_dir_name)
 
     case File.cp_r(data_dir, dest_dir) do
       {:ok, _} -> :ok
@@ -187,7 +187,7 @@ defmodule Mix.Tasks.Ct do
       ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
       logdir:       options[:log_dir] |> String.to_charlist,
       config:       test_config(options[:config]) |> String.to_charlist,
-      dir:          ebin_path |> String.to_charlist
+      dir:          ebin_path() |> String.to_charlist
     ]
 
     ct_opts =
