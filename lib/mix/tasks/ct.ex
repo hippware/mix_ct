@@ -77,7 +77,8 @@ defmodule Mix.Tasks.Ct do
     cover && cover.()
 
     case result do
-      :error -> Mix.raise "mix ct failed"
+      {:error, :failed_tests} -> Mix.raise "mix ct failed"
+      {:error, other} -> Mix.raise "mix ct failed: #{inspect other}"
       :ok -> :ok
     end
   end
@@ -212,7 +213,8 @@ defmodule Mix.Tasks.Ct do
   defp run_tests(opts) do
     case :ct.run_test(opts) do
       {_, 0, {_, _}} -> :ok
-      _ -> :error
+      {_, _, {_, _}} -> {:error, :failed_tests}
+      {:error, e} -> {:error, e}
     end
   end
 end
