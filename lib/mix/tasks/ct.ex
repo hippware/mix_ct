@@ -57,9 +57,7 @@ defmodule Mix.Tasks.Ct do
     post_config = ct_post_config(project)
     modify_project_config(post_config)
 
-    # make sure mix will let us run compile
-    ensure_compile()
-    Mix.Task.run "compile"
+    Mix.Tasks.Compile.run(args)
 
     # start cover
     cover =
@@ -141,19 +139,6 @@ defmodule Mix.Tasks.Ct do
     %{name: name, file: file} = Mix.Project.pop
     Mix.ProjectStack.post_config(post_config)
     Mix.Project.push name, file
-  end
-
-  defp ensure_compile do
-    # we have to reenable compile and all of its
-    # child tasks (compile.erlang, compile.elixir, etc)
-    Mix.Task.reenable("compile")
-    Enum.each(compilers(), &Mix.Task.reenable/1)
-  end
-
-  defp compilers do
-    Mix.Task.all_modules
-    |> Enum.map(&Mix.Task.task_name/1)
-    |> Enum.filter(fn(t) -> match?("compile." <> _, t) end)
   end
 
   defp prepare(options) do
