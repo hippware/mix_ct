@@ -88,16 +88,24 @@ defmodule Mix.Tasks.Ct do
       end
 
     # run the actual tests
-    prepare(options)
-    ct_opts = get_ct_opts(options)
-    result = run_tests(ct_opts)
+    suites = get_suites(options)
+    if length(suites) > 0 do
+      prepare(suites, options)
 
-    cover && cover.()
+      result =
+        options
+        |> get_ct_opts()
+        |> run_tests()
 
-    case result do
-      {:error, :failed_tests} -> Mix.raise "mix ct failed"
-      {:error, other} -> Mix.raise "mix ct failed: #{inspect other}"
-      :ok -> :ok
+      cover && cover.()
+
+      case result do
+        {:error, :failed_tests} -> Mix.raise "mix ct failed"
+        {:error, other} -> Mix.raise "mix ct failed: #{inspect other}"
+        :ok -> :ok
+      end
+    else
+      :ok
     end
   end
 
@@ -147,26 +155,33 @@ defmodule Mix.Tasks.Ct do
     Mix.Project.push name, file
   end
 
-  defp prepare(options) do
-    case File.mkdir_p(options[:log_dir]) do
-      :ok -> :ok
-      {:error, error} ->
-        Mix.raise(
-          "Error creating log dir #{options[:log_dir]} from #{System.cwd}: " <>
-          inspect(error)
-        )
-    end
-
-    test_dir = options[:dir]
-    suites = options[:suite] || all_suites(test_dir)
-    Enum.each(suites, &copy_data_dir(&1, test_dir))
-  end
+  defp get_suites(options), do: options[:suite] || all_suites(options[:dir])
 
   defp all_suites(test_dir) do
     test_dir
     |> Path.join("*_SUITE.erl")
     |> Path.wildcard
     |> Enum.map(fn s -> s |> Path.rootname |> Path.basename end)
+  end
+
+  defp prepare(suites, options) do
+    make_log_dir(options[:log_dir])
+    copy_data_dirs(suites, options[:dir])
+  end
+
+  defp make_log_dir(log_dir) do
+    case File.mkdir_p(log_dir) do
+      :ok -> :ok
+      {:error, error} ->
+        Mix.raise(
+          "Error creating log dir #{log_dir} from #{System.cwd}: " <>
+          inspect(error)
+        )
+    end
+  end
+
+  defp copy_data_dirs(suites, test_dir) do
+    Enum.each(suites, &copy_data_dir(&1, test_dir))
   end
 
   defp copy_data_dir(suite, test_dir) do
