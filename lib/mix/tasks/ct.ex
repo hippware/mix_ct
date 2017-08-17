@@ -113,7 +113,7 @@ defmodule Mix.Tasks.Ct do
     {switches, _argv, _errors} =
       OptionParser.parse(args, [strict: @switches, aliases: @aliases])
 
-    project_opts = project[:eunit] || []
+    project_opts = project[:ct] || []
 
     @default_opts
     |> Keyword.merge(project_opts)
