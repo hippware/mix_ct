@@ -142,7 +142,14 @@ defmodule Mix.Tasks.Ct do
   end
 
   defp prepare(options) do
-    File.mkdir_p!(options[:log_dir])
+    case File.mkdir_p(options[:log_dir]) do
+      :ok -> :ok
+      {:error, error} ->
+        Mix.raise(
+          "Error creating log dir #{options[:log_dir]} from #{System.cwd}: " <>
+          inspect(error)
+        )
+    end
 
     suites = options[:suite] || all_suites()
     Enum.each(suites, &copy_data_dir/1)
