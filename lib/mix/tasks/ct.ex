@@ -44,17 +44,36 @@ defmodule Mix.Tasks.Ct do
   @preferred_cli_env :test
   @recursive true
 
-  @test_dir "test"
+  @switches [
+    dir:      :string,
+    suite:    :string,
+    group:    :string,
+    testcase: :string,
+    log_dir:  :string,
+    config:   :string,
+    cover:    :boolean
+  ]
 
-  @cover [output: "cover", tool: Mix.Tasks.Test.Cover]
+  @aliases [
+    d: :dir,
+    s: :suite,
+    g: :group,
+    t: :testcase,
+    l: :log_dir,
+    f: :config,
+    c: :cover
+  ]
+
+  @default_cover_opts [output: "cover", tool: Mix.Tasks.Test.Cover]
+  @default_opts [log_dir: "_build/#{Mix.env}/ct_logs", dir: "test"]
 
   def run(args) do
-    options = parse_options(args)
     project = Mix.Project.config
+    options = parse_options(args, project)
 
     # add test directory to compile paths and add
     # compiler options for test
-    post_config = ct_post_config(project)
+    post_config = ct_post_config(project, options)
     modify_project_config(post_config)
 
     Mix.Tasks.Compile.run(args)
@@ -63,7 +82,8 @@ defmodule Mix.Tasks.Ct do
     cover =
       if options[:cover] do
         compile_path = Mix.Project.compile_path(project)
-        cover = Keyword.merge(@cover, project[:test_coverage] || [])
+        cover =
+          Keyword.merge(@default_cover_opts, project[:test_coverage] || [])
         cover[:tool].start(compile_path, cover)
       end
 
@@ -81,50 +101,36 @@ defmodule Mix.Tasks.Ct do
     end
   end
 
-  defp parse_options(args) do
+  defp parse_options(args, project) do
     {switches, _argv, _errors} =
-      OptionParser.parse(args, [
-        strict: [
-          dir:      :string,
-          suite:    :string,
-          group:    :string,
-          testcase: :string,
-          log_dir:  :string,
-          config:   :string,
-          cover:    :boolean
-        ],
-        aliases: [
-          d: :dir,
-          s: :suite,
-          g: :group,
-          t: :testcase,
-          l: :log_dir,
-          f: :config,
-          c: :cover
-        ]
-      ])
+      OptionParser.parse(args, [strict: @switches, aliases: @aliases])
 
-    log_dir = Keyword.get(switches, :log_dir, "_build/#{Mix.env}/ct_logs")
+    project_opts = project[:eunit] || []
 
-    %{suite: switches[:suite] |> list_param,
-      group: switches[:group] |> list_param,
-      testcase: switches[:testcase] |> list_param,
-      config: switches[:config] |> list_param,
-      log_dir: log_dir,
-      cover: switches[:cover]}
+    @default_opts
+    |> Keyword.merge(project_opts)
+    |> Keyword.merge(switches)
+    |> Keyword.update(:suite, nil, &list_param/1)
+    |> Keyword.update(:group, nil, &list_param/1)
+    |> Keyword.update(:testcase, nil, &list_param/1)
+    |> Keyword.update(:config, nil, &list_param/1)
+    |> Keyword.take(Keyword.keys(@switches))
   end
 
   defp list_param(nil), do: nil
+  defp list_param(list) when is_list(list) do
+    Enum.map(list, &String.to_charlist/1)
+  end
   defp list_param(str) do
     str
     |> String.split(",")
     |> Enum.map(&String.to_charlist/1)
   end
 
-  defp ct_post_config(existing_config) do
+  defp ct_post_config(project, options) do
     compile_opts = [parse_transform: :cth_readable_transform]
-    [erlc_paths: existing_config[:erlc_paths] ++ [@test_dir],
-     erlc_options: maybe_add_test_define(existing_config[:erlc_options] ++ compile_opts)]
+    [erlc_paths: project[:erlc_paths] ++ [options[:dir]],
+     erlc_options: maybe_add_test_define(project[:erlc_options] ++ compile_opts)]
   end
 
   defp maybe_add_test_define(opts) do
@@ -151,20 +157,21 @@ defmodule Mix.Tasks.Ct do
         )
     end
 
-    suites = options[:suite] || all_suites()
-    Enum.each(suites, &copy_data_dir/1)
+    test_dir = options[:dir]
+    suites = options[:suite] || all_suites(test_dir)
+    Enum.each(suites, &copy_data_dir(&1, test_dir))
   end
 
-  defp all_suites do
-    @test_dir
+  defp all_suites(test_dir) do
+    test_dir
     |> Path.join("*_SUITE.erl")
     |> Path.wildcard
     |> Enum.map(fn s -> s |> Path.rootname |> Path.basename end)
   end
 
-  defp copy_data_dir(suite) do
+  defp copy_data_dir(suite, test_dir) do
     data_dir_name = "#{suite}_data"
-    data_dir = Path.join(@test_dir, data_dir_name)
+    data_dir = Path.join(test_dir, data_dir_name)
     dest_dir = Path.join(ebin_path(), data_dir_name)
 
     case File.cp_r(data_dir, dest_dir) do
@@ -175,11 +182,12 @@ defmodule Mix.Tasks.Ct do
   end
 
   defp get_ct_opts(options) do
+    test_dir = options[:dir]
     base_ct_opts = [
       auto_compile: false,
       ct_hooks:     [:cth_readable_failonly, :cth_readable_shell],
       logdir:       options[:log_dir] |> String.to_charlist,
-      config:       test_config(options[:config]) |> String.to_charlist,
+      config:       test_config(options[:config], test_dir) |> String.to_charlist,
       dir:          ebin_path() |> String.to_charlist
     ]
 
@@ -188,14 +196,14 @@ defmodule Mix.Tasks.Ct do
       |> Enum.reduce(base_ct_opts, fn n, acc -> ct_opt(n, options[n], acc) end)
 
     if is_nil(ct_opts[:suite]) do
-      [{:dir, @test_dir |> String.to_charlist} | ct_opts]
+      [{:dir, test_dir |> String.to_charlist} | ct_opts]
     else
       ct_opts
     end
   end
 
-  defp test_config(nil), do: @test_dir |> Path.join("test.config")
-  defp test_config(str), do: str
+  defp test_config(nil, test_dir), do: test_dir |> Path.join("test.config")
+  defp test_config(str, _), do: str
 
   defp ebin_path, do: Mix.Project.app_path |> Path.join("ebin")
 
