@@ -99,7 +99,7 @@ defmodule Mix.Tasks.Ct do
       result =
         options
         |> get_ct_opts()
-        |> run_tests()
+        |> run_tests(options[:fail_auto_skip])
 
       cover && cover.()
 
@@ -242,10 +242,10 @@ defmodule Mix.Tasks.Ct do
   defp ct_opt(_, nil, ct_opts), do: ct_opts
   defp ct_opt(opt, val, ct_opts), do: [{opt, val} | ct_opts]
 
-  defp run_tests(opts) do
+  defp run_tests(opts, fail_auto_skip) do
     case :ct.run_test(opts) do
       {_, 0, {_, auto_skipped}} ->
-        if opts[:fail_auto_skip] == true and auto_skipped != 0 do
+        if fail_auto_skip == true and auto_skipped != 0 do
           {:error, :skipped_tests}
         else
           :ok
