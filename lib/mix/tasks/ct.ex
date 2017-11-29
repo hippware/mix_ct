@@ -39,6 +39,7 @@ defmodule Mix.Tasks.Ct do
     * `--config`, `-f`      - test config to use; default: test/test.config
     * `--log-dir`, `-l`     - change the output directory; default: _build/<ENV>/ct_logs
     * `--cover`, `-c`       - run cover report
+    * `--fail-auto-skip`, `-a` - fail if any tests are auto-skipped
   """
   @shortdoc "Runs a project's Common Test suite"
   @preferred_cli_env :test
@@ -51,7 +52,8 @@ defmodule Mix.Tasks.Ct do
     testcase: :string,
     log_dir:  :string,
     config:   :string,
-    cover:    :boolean
+    cover:    :boolean,
+    fail_auto_skip: :boolean
   ]
 
   @aliases [
@@ -61,7 +63,8 @@ defmodule Mix.Tasks.Ct do
     t: :testcase,
     l: :log_dir,
     f: :config,
-    c: :cover
+    c: :cover,
+    a: :fail_auto_skip
   ]
 
   @default_cover_opts [output: "cover", tool: Mix.Tasks.Test.Cover]
@@ -241,7 +244,12 @@ defmodule Mix.Tasks.Ct do
 
   defp run_tests(opts) do
     case :ct.run_test(opts) do
-      {_, 0, {_, _}} -> :ok
+      {_, 0, {_, auto_skipped}} ->
+        if opts[:fail_auto_skip] and auto_skipped != 0 do
+          {:error, :skipped_tests}
+        else
+          :ok
+        end
       {_, _, {_, _}} -> {:error, :failed_tests}
       {:error, e} -> {:error, e}
     end
