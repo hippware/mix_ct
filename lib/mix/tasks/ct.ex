@@ -245,7 +245,7 @@ defmodule Mix.Tasks.Ct do
   defp run_tests(opts) do
     case :ct.run_test(opts) do
       {_, 0, {_, auto_skipped}} ->
-        if opts[:fail_auto_skip] and auto_skipped != 0 do
+        if opts[:fail_auto_skip] == true and auto_skipped != 0 do
           {:error, :skipped_tests}
         else
           :ok
