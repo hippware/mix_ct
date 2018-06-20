@@ -11,6 +11,6 @@ defmodule MixCt.Mixfile do
   end
 
   defp deps do
-    [{:cth_readable, "~> 1.2"}]
+    [{:cth_readable, "~> 1.4"}]
   end
 end

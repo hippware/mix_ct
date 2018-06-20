@@ -1,2 +1,4 @@
-%{"cf": {:hex, :cf, "0.2.1", "69d0b1349fd4d7d4dc55b7f407d29d7a840bf9a1ef5af529f1ebe0ce153fc2ab", [:rebar3], []},
-  "cth_readable": {:hex, :cth_readable, "1.2.3", "293120673dff82f0768612c5282e35c40cacc1b6f94fe99077438fd3749d0e27", [:rebar3], [{:cf, "0.2.1", [hex: :cf, optional: false]}]}}
+%{
+  "cf": {:hex, :cf, "0.2.2", "7f2913fff90abcabd0f489896cfeb0b0674f6c8df6c10b17a83175448029896c", [:rebar3], [], "hexpm"},
+  "cth_readable": {:hex, :cth_readable, "1.4.2", "0f57b4eb7da7f5438f422312245f9143a1b3118c11b6bae5c3d1391c9ee88322", [:rebar3], [{:cf, "~>0.2.1", [hex: :cf, repo: "hexpm", optional: false]}], "hexpm"},
+}
