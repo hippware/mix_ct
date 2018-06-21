@@ -11,6 +11,6 @@ defmodule MixCt.Mixfile do
   end
 
   defp deps do
-    [{:cth_readable, "~> 1.4"}]
+    [{:cth_readable, github: "hippware/cth_readable", branch: "master"}]
   end
 end

@@ -1,4 +1,4 @@
 %{
-  "cf": {:hex, :cf, "0.2.2", "7f2913fff90abcabd0f489896cfeb0b0674f6c8df6c10b17a83175448029896c", [:rebar3], [], "hexpm"},
-  "cth_readable": {:hex, :cth_readable, "1.4.2", "0f57b4eb7da7f5438f422312245f9143a1b3118c11b6bae5c3d1391c9ee88322", [:rebar3], [{:cf, "~>0.2.1", [hex: :cf, repo: "hexpm", optional: false]}], "hexpm"},
+  "cf": {:git, "https://github.com/project-fifo/cf.git", "a6b395759e423aa0844825fb1d8bd2d022fc8ab5", [ref: "a6b3957"]},
+  "cth_readable": {:git, "https://github.com/hippware/cth_readable.git", "e447c0093e9f75f33516cb47b5f79aee52a5094b", [branch: "master"]},
 }
